@@ -9,12 +9,12 @@
 # --- |:---:|:---:|:---
 # PassengerId|||Needed for submission
 # Survived|||Training label
-# Pclass||Rescaling (0-1)|
+# Pclass||As is|
 # Name|||Ignored
-# Sex||Encoded as 0 (M) or 1 (F)|
-# Age|Impute with mean|Rescaling (0-1)|
-# SibSp|Impute with mean|Rescaling (0-1)|
-# Parch|Impute with mean|Rescaling (0-1)|
+# Sex||Encoded as 0(<) or 1(F)|
+# Age|Impute with mean|As is|
+# SibSp|Impute with mean|As is|
+# Parch|Impute with mean|As is|
 # Ticket|||Ignored
 # Cabin|||Ignored
 # Embarked|||Ignored
@@ -29,8 +29,16 @@
 # ### Kaggle score
 #   * 0.75598
 # 
+# 
+# ### Change history
+# Score|Comment
+# ---|:---
+# 0.75598|First attempt
+# 0.73684|Changed Pclass and Sex to one hot encoding
+# 0.72248|Undid the last change and rescaled Parch as well
+# 0.77990|
 
-# In[4]:
+# In[1]:
 
 import tensorflow as tf
 import numpy as np
@@ -38,29 +46,24 @@ import pandas as pd
 # import matplotlib.pyplot as plt
 
 
-# In[5]:
+# In[2]:
 
 # load data
 train_data = pd.read_csv(r"./data/train.csv")
 test_data = pd.read_csv(r"./data/test.csv")
 
 
-# In[6]:
+# In[3]:
 
 train_data.head()
 
 
-# In[7]:
+# In[4]:
 
 test_data.head()
 
 
-# In[ ]:
-
-
-
-
-# In[8]:
+# In[5]:
 
 # Delete the data we don't need
 cols = ["Name", "Ticket", "Embarked", "Cabin", "Fare"]
@@ -69,7 +72,7 @@ test_data.drop(cols, axis=1, inplace=True)
 train_data.head(20)
 
 
-# In[9]:
+# In[6]:
 
 # Fill the NaNs in Age, SibSp and Parch with the mean of the training data of that column
 def fillna_n(col,n):
@@ -87,7 +90,7 @@ fillna_n(train_data["Parch"], mean_parch)
 fillna_n(test_data["Parch"], mean_parch)
 
 
-# In[10]:
+# In[7]:
 
 # What NaNs do we still have?
 print(train_data.isnull().sum())
@@ -96,34 +99,38 @@ train_data[train_data.isnull().any(axis=1)]
 test_data[test_data.isnull().any(axis=1)]
 
 
-# In[11]:
+# In[8]:
 
 from sklearn.preprocessing import LabelEncoder
 le = LabelEncoder()
 le.fit(["male","female"])
 train_data["Sex"] = le.transform(train_data["Sex"]) 
-test_data["Sex"] = le.transform(test_data["Sex"]) 
+test_data["Sex"] = le.transform(test_data["Sex"])
+# train_data = pd.get_dummies(train_data,columns=["Sex","Pclass"])
+# test_data = pd.get_dummies(test_data,columns=["Sex","Pclass"])
+# train_data.head()
 
 
-# In[12]:
+# In[9]:
 
 from sklearn.preprocessing import MinMaxScaler
 scaler = MinMaxScaler()
-for data in [train_data, test_data]:
-    data["Age"] = scaler.fit_transform(data["Age"].values.reshape(-1,1))
-    data["SibSp"] = scaler.fit_transform(data["SibSp"].values.reshape(-1,1))
-    data["Pclass"] = scaler.fit_transform(data["Pclass"].values.reshape(-1,1))
+# for data in [train_data, test_data]:
+#     data["Age"] = scaler.fit_transform(data["Age"].values.reshape(-1,1))
+#     data["SibSp"] = scaler.fit_transform(data["SibSp"].values.reshape(-1,1))
+#     data["Parch"] = scaler.fit_transform(data["SibSp"].values.reshape(-1,1))
+#     data["Pclass"] = scaler.fit_transform(data["Pclass"].values.reshape(-1,1))
 
 train_data.head()
 
 
-# In[13]:
+# In[10]:
 
 train_data.to_csv("./data/train_prepped.csv")
 test_data.to_csv("./data/test_prepped.csv")
 
 
-# In[14]:
+# In[11]:
 
 #save PassengerId for evaluation and remove from data
 test_passenger_id=test_data["PassengerId"]
@@ -134,20 +141,20 @@ y = pd.get_dummies(train_data['Survived'])
 y.head()
 
 
-# In[15]:
+# In[12]:
 
 x = train_data.drop("Survived", axis=1)
 x.head()
 
 
-# In[16]:
+# In[13]:
 
 from keras.models import Sequential
 from keras.optimizers import SGD, RMSprop, Adam
 from keras.layers import Dense, Activation, Dropout
 
 
-# In[17]:
+# In[14]:
 
 model = Sequential()
 model.add(Dense(input_dim=x.shape[1], units=128, kernel_initializer='normal', bias_initializer='zeros'))
@@ -164,20 +171,25 @@ model.add(Activation('softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 
-# In[18]:
+# In[15]:
 
 model.fit(x.values, y.values, epochs=500, verbose=2)
 
 
-# In[19]:
+# In[16]:
 
 p_survived = model.predict_classes(test_data.values)
 
 
-# In[20]:
+# In[17]:
 
 submission = pd.DataFrame()
 submission['PassengerId'] = test_passenger_id
 submission['Survived'] = p_survived
-submission.to_csv('./data/titanic_keras_cs.csv', index=False)
+submission.to_csv('./data/submission.csv', index=False)
+
+
+# In[ ]:
+
+
 
