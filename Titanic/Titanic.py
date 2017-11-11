@@ -36,14 +36,17 @@
 # 0.75598|First attempt
 # 0.73684|Changed Pclass and Sex to one hot encoding
 # 0.72248|Undid the last change and rescaled Parch as well
-# 0.77990|
+# 0.77990|Removed normalization of Age, Parch, SibSp, Pclass
+# 0.75598|Added Fare back in
+# 0.76555|Let's go back one step and change the model to only two layers
+# 0.78947|Reduced epochs to 125, added validation of 0.2
 
-# In[1]:
+# In[20]:
 
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 # In[2]:
@@ -69,7 +72,6 @@ test_data.head()
 cols = ["Name", "Ticket", "Embarked", "Cabin", "Fare"]
 train_data.drop(cols, axis=1, inplace=True)
 test_data.drop(cols, axis=1, inplace=True)
-train_data.head(20)
 
 
 # In[6]:
@@ -109,6 +111,8 @@ test_data["Sex"] = le.transform(test_data["Sex"])
 # train_data = pd.get_dummies(train_data,columns=["Sex","Pclass"])
 # test_data = pd.get_dummies(test_data,columns=["Sex","Pclass"])
 # train_data.head()
+# train_data.replace({"Sex":{"male":-1,"female":1}},inplace=True)
+# test_data.replace({"Sex":{"male":-1,"female":1}},inplace=True)
 
 
 # In[9]:
@@ -118,7 +122,7 @@ scaler = MinMaxScaler()
 # for data in [train_data, test_data]:
 #     data["Age"] = scaler.fit_transform(data["Age"].values.reshape(-1,1))
 #     data["SibSp"] = scaler.fit_transform(data["SibSp"].values.reshape(-1,1))
-#     data["Parch"] = scaler.fit_transform(data["SibSp"].values.reshape(-1,1))
+#     data["Parch"] = scaler.fit_transform(data["Parch"].values.reshape(-1,1))
 #     data["Pclass"] = scaler.fit_transform(data["Pclass"].values.reshape(-1,1))
 
 train_data.head()
@@ -138,23 +142,24 @@ train_data.drop("PassengerId", axis=1, inplace=True)
 test_data.drop("PassengerId", axis=1, inplace=True)
 
 y = pd.get_dummies(train_data['Survived'])
-y.head()
-
-
-# In[12]:
-
 x = train_data.drop("Survived", axis=1)
-x.head()
 
 
 # In[13]:
+
+# Split the data into train and validation sets 0.8/0.2
+# from sklearn.model_selection import train_test_split
+# X_train, X_val, y_train, y_val = train_test_split(x, y, test_size=0.2, random_state=42)
+
+
+# In[14]:
 
 from keras.models import Sequential
 from keras.optimizers import SGD, RMSprop, Adam
 from keras.layers import Dense, Activation, Dropout
 
 
-# In[14]:
+# In[23]:
 
 model = Sequential()
 model.add(Dense(input_dim=x.shape[1], units=128, kernel_initializer='normal', bias_initializer='zeros'))
@@ -171,17 +176,40 @@ model.add(Activation('softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 
-# In[15]:
+# In[24]:
 
-model.fit(x.values, y.values, epochs=500, verbose=2)
+hist = model.fit(x.values, y.values, epochs=125, verbose=2, validation_split=0.2)
 
 
-# In[16]:
+# In[25]:
+
+## TODO: Visualize the training and validation loss of your neural network
+print(hist.history.keys())
+
+# summarize history for accuracy
+plt.plot(hist.history['acc'])
+plt.plot(hist.history['val_acc'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'validation'], loc='lower left')
+plt.show()
+# summarize history for loss
+plt.plot(hist.history['loss'])
+plt.plot(hist.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'validation'], loc='upper left')
+plt.show()
+
+
+# In[26]:
 
 p_survived = model.predict_classes(test_data.values)
 
 
-# In[17]:
+# In[27]:
 
 submission = pd.DataFrame()
 submission['PassengerId'] = test_passenger_id
